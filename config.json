@@ -1,0 +1,22 @@
+{
+    "dataset": "newfacade/LeetCodeDataset",
+    "model_name": "Qwen/Qwen2.5-3B-Instruct",
+    "ckpt_name": "qwen_checkpoint_1epoch",
+    "sft": {
+        "num_epochs": 1,
+        "batch_size": 16,
+        "optim": "paged_adamw_8bit",
+        "lr": 2e-5
+    },
+    "lora": {
+        "rank": 8,
+        "alpha": 32,
+        "target": ["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj"],
+        "dropout": 0.05
+    },
+    "generation": {
+        "max_new_tokens": 2048,
+        "temperature": 1.0,
+        "top_p": 0.95
+    }
+}
