@@ -1,7 +1,8 @@
 import torch
 import json
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, AutoPeftModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
 
 with open("config.json", "r") as f:
     cfg = json.load(f)
@@ -26,10 +27,33 @@ def load_model_and_tokenizer(model_id):
     model = AutoModelForCausalLM.from_pretrained(model_id,
                                                 torch_dtype=torch.bfloat16,
                                                 device_map="auto",
-                                                quantization_config=bnb_config)
+                                                quantization_config=bnb_config,
+                                                attn_implementation="flash_attention_2")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     
     model = prepare_model_for_kbit_training(model)
     model = get_peft_model(model, lora_config)
 
     return model, tokenizer
+
+def load_sft_model_and_tokenizer(model_path):
+    sft_tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
+
+    bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+    sft_model = AutoPeftModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            quantization_config=bnb_config,
+            attn_implementation="flash_attention_2"
+        )
+
+    sft_model.config.use_cache = True
+    sft_model.eval()
+    
+    return sft_model, sft_tokenizer
