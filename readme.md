@@ -89,12 +89,10 @@
 
 ```bash
 .
-├── data/                     # LeetCode, APPS datasets
-├── src/
-│   ├── sft_train.py          # SFT training pipeline
-│   ├── dpo_train.py          # DPO fine-tuning pipeline
-│   ├── utils/                # preprocessing, evaluation
-│   └── configs/              # model & training configs
-├── results/                  # evaluation logs & charts
-└── README.md
+├── checkpoints         # weights of trained model
+├── config.json         
+├── main.ipynb          # pipeline from data preparation to SFT/DPO
+├── make_prompts.py     # prompts for training
+├── qlora.py            # includes functions to load model and tokenizer for QLoRA manner
+└── readme.md
 ```
