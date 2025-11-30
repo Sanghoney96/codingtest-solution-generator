@@ -29,7 +29,7 @@ def load_model_and_tokenizer(model_id):
                                                 device_map="auto",
                                                 quantization_config=bnb_config,
                                                 attn_implementation="flash_attention_2")
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
     
     model = prepare_model_for_kbit_training(model)
     model = get_peft_model(model, lora_config)
