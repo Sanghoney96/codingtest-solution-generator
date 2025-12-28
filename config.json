@@ -1,12 +1,13 @@
 {
     "dataset": "newfacade/LeetCodeDataset",
-    "model_name": "Qwen/Qwen2.5-3B-Instruct",
-    "ckpt_name": "qwen_checkpoint_1epoch",
+    "model_name": "Qwen/Qwen2.5-7B-Instruct",
+    "ckpt_name": "qwen_checkpoint",
     "sft": {
         "num_epochs": 3,
         "batch_size": 16,
-        "optim": "paged_adamw_8bit",
-        "lr": 2e-5
+        "lr": 2e-5,
+        "warmup": 0.05,
+        "grad_accum_steps": 4
     },
     "lora": {
         "rank": 8,

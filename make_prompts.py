@@ -1,5 +1,8 @@
-from prompts import COT_SYSTEM_PROMPT
+import os
+from prompts import COT_SYSTEM_PROMPT, REASONING_GENERATION_PROMPT
 from datasets import Dataset
+from openai import OpenAI
+
 
 def generate_prompts(dataset, tokenizer, is_eval=False):
     output_texts = []
@@ -11,20 +14,9 @@ def generate_prompts(dataset, tokenizer, is_eval=False):
         )
 
         if is_eval == False:
-            chunks = response.split("```")
-            reasoning = chunks[0]
-            code = chunks[1] if len(chunks) > 1 else ""
-            explanation = chunks[2] if len(chunks) > 2 else ""
-            
-            assistant_msg = (
-                reasoning + "\n\n"
-                + explanation + "\n\n"
-                + "```" + code + "\n\n```"
-            )
-            
             messages = [
                     {"role": "user", "content": cot_user_msg},
-                    {"role": "assistant", "content": assistant_msg}
+                    {"role": "assistant", "content": response}
                 ]
             prompt = tokenizer.apply_chat_template(messages, 
                                                 tokenize=False, 
@@ -43,3 +35,34 @@ def generate_prompts(dataset, tokenizer, is_eval=False):
     output_texts = Dataset.from_dict({"text": output_texts})
     
     return output_texts
+
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def generate_reasoning(sample):
+    query, response = sample['query'], sample['response']
+    
+    _, question = query.split("### Question:", 1)
+
+    chunks = response.split("```")
+    approach = chunks[0]
+    code = chunks[1] if len(chunks) > 1 else ""
+    explanation = chunks[2] if len(chunks) > 2 else ""
+    
+    prompt = REASONING_GENERATION_PROMPT.format(
+        question=question,
+        approach=approach,
+        explanation=explanation,
+        code=code
+    )
+    
+    messages = [
+                {"role": "user", "content": prompt}
+            ]
+
+    response = client.chat.completions.create(
+                model="gpt-5-mini",
+                messages=messages
+            )
+    
+    return {"reasoning": response.choices[0].message.content}

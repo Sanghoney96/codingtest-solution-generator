@@ -21,8 +21,7 @@ def load_model_and_tokenizer(model_id):
                                                 quantization_config=bnb_config,
                                                 attn_implementation="flash_attention_2")
     tokenizer = AutoTokenizer.from_pretrained(model_id, 
-                                              use_fast=True,
-                                              padding_side='right')
+                                            use_fast=True)
     tokenizer.pad_token = tokenizer.eos_token
     
     model = prepare_model_for_kbit_training(model)
