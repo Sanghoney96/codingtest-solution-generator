@@ -1,16 +1,13 @@
-COT_SYSTEM_PROMPT = """Before solving a problem, think step by step and explain your reasoning. 
-Start with your approach and explanation, then write the final code.\n\n"""
-
 REASONING_GENERATION_PROMPT = """You are rewriting a model answer 
 to create a concise reasoning section for a reference solution.
 
 Your task:
-Combine the given APPROACH and EXPLANATION to get "Reasoning" section.
+Combine the given APPROACH and EXPLANATION to get a "Reasoning" section,
+grounded in the QUESTION and its constraints and problem structure.
 
 Guidelines:
 - The reasoning must describe the core algorithmic idea and why it works.
-- Use at most 1–4 sentences.
-- Do NOT provide step-by-step reasoning.
+- The reasoning should serve as a high-level algorithmic plan that guides code design, without describing implementation steps.
 - Do NOT describe trial-and-error or intermediate thoughts.
 - Do NOT mention variable names, loops, or implementation details.
 - The reasoning should remain valid even if the code implementation changes.
@@ -18,8 +15,8 @@ Guidelines:
 
 Tone and style:
 - Neutral and instructional.
-- Focus on *what* algorithm is used and *why* it solves the problem.
-- Avoid redundancy and unnecessary details.
+- Focus on *what* algorithm is used, *why it is chosen given the problem structure*, and *why it solves the problem*.
+- Avoid redundancy and unnecessary details unrelated to the algorithmic decision or core invariant.
 
 Input:
 [QUESTION]

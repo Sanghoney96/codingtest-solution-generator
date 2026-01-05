@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 with open("config.json", "r") as f:
     cfg = json.load(f)
 
-def load_model_and_tokenizer(model_id):
+def load_qlora_model(model_id):
     bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
@@ -20,9 +20,6 @@ def load_model_and_tokenizer(model_id):
                                                 device_map="auto",
                                                 quantization_config=bnb_config,
                                                 attn_implementation="flash_attention_2")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, 
-                                            use_fast=True)
-    tokenizer.pad_token = tokenizer.eos_token
     
     model = prepare_model_for_kbit_training(model)
     
@@ -37,18 +34,17 @@ def load_model_and_tokenizer(model_id):
     
     model = get_peft_model(model, lora_config)
 
-    return model, tokenizer
+    return model
 
-def load_trained_model_and_tokenizer(model_id, adaptor_path):
+def load_trained_model(model_id, adaptor_path):
     base_model = AutoModelForCausalLM.from_pretrained(model_id,
                                                       torch_dtype=torch.bfloat16,
                                                       device_map="auto",
                                                       attn_implementation="flash_attention_2")
 
     model = PeftModel.from_pretrained(base_model, adaptor_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
     
     model.config.use_cache = True
     model.eval()
     
-    return model, tokenizer
+    return model

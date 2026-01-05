@@ -1,29 +1,33 @@
 import os
-from prompts import COT_SYSTEM_PROMPT, REASONING_GENERATION_PROMPT
+import json
+from prompts import REASONING_GENERATION_PROMPT
 from datasets import Dataset
 from openai import OpenAI
 
+with open("config.json", "r") as f:
+    cfg = json.load(f)
 
-def generate_prompts(dataset, tokenizer, is_eval=False):
+
+def generate_prompts(dataset, tokenizer, is_test=False):
     output_texts = []
-    for query, response in zip(dataset["query"], dataset["response"]):
-        system_msg, user_msg = query.split("### Question:", 1)
-        cot_user_msg = (
-            system_msg + COT_SYSTEM_PROMPT 
-            + "### Question:" + user_msg
-        )
-
-        if is_eval == False:
+    for query, response, reasoning in zip(dataset["query"], dataset["response"], dataset["reasoning"]):
+        if is_test == False:
+            chunks = response.split("```")
+            _, code, explanation = chunks[0], chunks[1], chunks[2]
+            
+            cot_response = reasoning + "\n\n```" + code + "\n```" + explanation
+            
             messages = [
-                    {"role": "user", "content": cot_user_msg},
-                    {"role": "assistant", "content": response}
+                    {"role": "user", "content": query},
+                    {"role": "assistant", "content": cot_response}
                 ]
             prompt = tokenizer.apply_chat_template(messages, 
                                                 tokenize=False, 
                                                 add_generation_prompt=False)
         else:
+            system_msg, user_msg = query.split("### Question:", 1)
             messages = [
-                {"role": "system", "content": system_msg + COT_SYSTEM_PROMPT},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": "### Question:" + user_msg}
             ]
             prompt = tokenizer.apply_chat_template(messages, 
@@ -37,17 +41,22 @@ def generate_prompts(dataset, tokenizer, is_eval=False):
     return output_texts
 
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+_client = None
+
+def get_openai_client():
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _client
 
 def generate_reasoning(sample):
+    client = get_openai_client()
     query, response = sample['query'], sample['response']
     
     _, question = query.split("### Question:", 1)
 
     chunks = response.split("```")
-    approach = chunks[0]
-    code = chunks[1] if len(chunks) > 1 else ""
-    explanation = chunks[2] if len(chunks) > 2 else ""
+    approach, code, explanation = chunks[0], chunks[1], chunks[2]
     
     prompt = REASONING_GENERATION_PROMPT.format(
         question=question,
@@ -56,13 +65,19 @@ def generate_reasoning(sample):
         code=code
     )
     
-    messages = [
-                {"role": "user", "content": prompt}
-            ]
-
-    response = client.chat.completions.create(
-                model="gpt-5-mini",
-                messages=messages
-            )
+    # messages = [
+    #     {"role": "user", "content": prompt}
+    # ],
     
-    return {"reasoning": response.choices[0].message.content}
+    # response = client.chat.completions.create(
+    #             model=cfg["cot_generation_model"],
+    #             messages=messages
+    #             )
+    
+    response = client.responses.create(
+                model=cfg["cot_generation_model"],
+                input=prompt,
+                reasoning={"effort": "high"}
+                )
+    
+    return {"reasoning": response.output_text}

@@ -2,6 +2,7 @@
     "dataset": "newfacade/LeetCodeDataset",
     "model_name": "Qwen/Qwen2.5-7B-Instruct",
     "ckpt_name": "qwen_checkpoint",
+    "cot_generation_model": "gpt-5-mini",
     "sft": {
         "num_epochs": 3,
         "batch_size": 16,
