@@ -15,7 +15,7 @@ def generate_prompts(dataset, tokenizer, is_test=False):
             chunks = response.split("```")
             _, code, explanation = chunks[0], chunks[1], chunks[2]
             
-            cot_response = reasoning + "\n\n```" + code + "\n```" + explanation
+            cot_response = "<|think_start|>\n" + reasoning + "\n<|think_end|>" + "\n\n```" + code + "\n```" + explanation
             
             messages = [
                     {"role": "user", "content": query},
@@ -25,14 +25,13 @@ def generate_prompts(dataset, tokenizer, is_test=False):
                                                 tokenize=False, 
                                                 add_generation_prompt=False)
         else:
-            system_msg, user_msg = query.split("### Question:", 1)
             messages = [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": "### Question:" + user_msg}
+                {"role": "user", "content": query}
             ]
             prompt = tokenizer.apply_chat_template(messages, 
                                                 tokenize=False, 
                                                 add_generation_prompt=True)
+            prompt += "<|think_start|>\n"
             
         output_texts.append(prompt)
         
@@ -64,15 +63,6 @@ def generate_reasoning(sample):
         explanation=explanation,
         code=code
     )
-    
-    # messages = [
-    #     {"role": "user", "content": prompt}
-    # ],
-    
-    # response = client.chat.completions.create(
-    #             model=cfg["cot_generation_model"],
-    #             messages=messages
-    #             )
     
     response = client.responses.create(
                 model=cfg["cot_generation_model"],
