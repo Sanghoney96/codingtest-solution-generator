@@ -1,0 +1,15 @@
+{
+  "os": "macOS-26.2-arm64-arm-64bit",
+  "python": "CPython 3.11.11",
+  "startedAt": "2026-01-18T10:10:11.474599Z",
+  "program": "-m train.sft",
+  "git": {
+    "remote": "https://github.com/Sanghoney96/codingtest-solution-generator.git",
+    "commit": "66450a3f8337cf3581d9064c74da7cc7e276d5bc"
+  },
+  "email": "shultra2@gmail.com",
+  "root": "/Users/masang/Desktop/side-projects/llm-fine-tuning",
+  "host": "sangheon-ui-MacBook-Air.local",
+  "executable": "/Users/masang/miniconda/envs/langchain/bin/python",
+  "writerId": "web45pd6v7gbn1rbh5n6tw01k56n21kn"
+}

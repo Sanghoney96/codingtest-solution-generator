@@ -1,0 +1,316 @@
+diff --git a/__pycache__/make_prompts.cpython-311.pyc b/__pycache__/make_prompts.cpython-311.pyc
+index e17323e..faebb73 100644
+Binary files a/__pycache__/make_prompts.cpython-311.pyc and b/__pycache__/make_prompts.cpython-311.pyc differ
+diff --git a/__pycache__/qlora.cpython-311.pyc b/__pycache__/qlora.cpython-311.pyc
+index 73dc98f..9647c4c 100644
+Binary files a/__pycache__/qlora.cpython-311.pyc and b/__pycache__/qlora.cpython-311.pyc differ
+diff --git a/config.json b/config.json
+deleted file mode 100644
+index f32164b..0000000
+--- a/config.json
++++ /dev/null
+@@ -1,24 +0,0 @@
+-{
+-    "dataset": "newfacade/LeetCodeDataset",
+-    "model_name": "Qwen/Qwen2.5-7B-Instruct",
+-    "ckpt_name": "qwen_checkpoint",
+-    "cot_generation_model": "gpt-5-mini",
+-    "sft": {
+-        "num_epochs": 3,
+-        "batch_size": 16,
+-        "lr": 2e-5,
+-        "warmup": 0.05,
+-        "grad_accum_steps": 4
+-    },
+-    "lora": {
+-        "rank": 8,
+-        "alpha": 32,
+-        "target": ["q_proj", "v_proj", "o_proj"],
+-        "dropout": 0.05
+-    },
+-    "generation": {
+-        "max_new_tokens": 2048,
+-        "temperature": 0.5,
+-        "top_p": 0.95
+-    }
+-}
+\ No newline at end of file
+diff --git a/main.ipynb b/main.ipynb
+index 629d05f..ca699a2 100644
+--- a/main.ipynb
++++ b/main.ipynb
+@@ -70,9 +70,8 @@
+    ],
+    "source": [
+     "!python -m pip install --upgrade pip\n",
+-    "!pip install -U bitsandbytes transformers peft datasets hf_transfer trl evaluate sacrebleu\n",
+-    "!pip install flash-attn --no-build-isolation\n",
+-    "!pip install wandb"
++    "!pip install -U bitsandbytes transformers peft datasets hf_transfer trl evaluate sacrebleu wandb\n",
++    "!pip install flash-attn --no-build-isolation"
+    ]
+   },
+   {
+@@ -248,7 +247,7 @@
+   },
+   {
+    "cell_type": "code",
+-   "execution_count": 6,
++   "execution_count": null,
+    "metadata": {},
+    "outputs": [
+     {
+@@ -349,10 +348,7 @@
+    "source": [
+     "# wandb initialization\n",
+     "wandb.login(os.getenv(\"WANDB_API_KEY\"))\n",
+-    "\n",
+-    "project = \"sft-hpo\"\n",
+-    "display_name = \"qwen2.5-python-coder\"\n",
+-    "wandb.init(project=project, name=display_name)"
++    "wandb.init(project=os.getenv(\"WANDB_PROJECT\"), name=os.getenv(\"WANDB_DISPLAY_NAME\"))"
+    ]
+   },
+   {
+@@ -463,8 +459,8 @@
+     "    do_eval=True,\n",
+     "    eval_strategy=\"epoch\",\n",
+     "    group_by_length=True,\n",
+-    "    report_to=\"wandb\"\n",
+-    "    )\n",
++    "    report_to=\"wandb\",\n",
++    ")\n",
+     "\n",
+     "trainer = SFTTrainer(\n",
+     "    model=model,\n",
+@@ -960,7 +956,7 @@
+    "provenance": []
+   },
+   "kernelspec": {
+-   "display_name": "Python 3",
++   "display_name": "langchain",
+    "language": "python",
+    "name": "python3"
+   },
+@@ -974,7 +970,7 @@
+    "name": "python",
+    "nbconvert_exporter": "python",
+    "pygments_lexer": "ipython3",
+-   "version": "3.11.10"
++   "version": "3.11.11"
+   },
+   "widgets": {
+    "application/vnd.jupyter.widget-state+json": {
+diff --git a/make_prompts.py b/make_prompts.py
+index 4784bee..f1c66ec 100644
+--- a/make_prompts.py
++++ b/make_prompts.py
+@@ -1,73 +1,78 @@
+ import os
+-import json
++import yaml
+ from prompts import REASONING_GENERATION_PROMPT
+ from datasets import Dataset
+ from openai import OpenAI
+ 
+-with open("config.json", "r") as f:
+-    cfg = json.load(f)
++with open("config/base_config.yaml") as file:
++    cfg = yaml.load(file, Loader=yaml.FullLoader)
+ 
+ 
+ def generate_prompts(dataset, tokenizer, is_test=False):
+     output_texts = []
+-    for query, response, reasoning in zip(dataset["query"], dataset["response"], dataset["reasoning"]):
++    for query, response, reasoning in zip(
++        dataset["query"], dataset["response"], dataset["reasoning"]
++    ):
+         if is_test == False:
+             chunks = response.split("```")
+             _, code, explanation = chunks[0], chunks[1], chunks[2]
+-            
+-            cot_response = "<|think_start|>\n" + reasoning + "\n<|think_end|>" + "\n\n```" + code + "\n```" + explanation
+-            
+-            messages = [
+-                    {"role": "user", "content": query},
+-                    {"role": "assistant", "content": cot_response}
+-                ]
+-            prompt = tokenizer.apply_chat_template(messages, 
+-                                                tokenize=False, 
+-                                                add_generation_prompt=False)
+-        else:
++
++            cot_response = (
++                "<|think_start|>\n"
++                + reasoning
++                + "\n<|think_end|>"
++                + "\n\n```"
++                + code
++                + "\n```"
++                + explanation
++            )
++
+             messages = [
+-                {"role": "user", "content": query}
++                {"role": "user", "content": query},
++                {"role": "assistant", "content": cot_response},
+             ]
+-            prompt = tokenizer.apply_chat_template(messages, 
+-                                                tokenize=False, 
+-                                                add_generation_prompt=True)
++            prompt = tokenizer.apply_chat_template(
++                messages, tokenize=False, add_generation_prompt=False
++            )
++        else:
++            messages = [{"role": "user", "content": query}]
++            prompt = tokenizer.apply_chat_template(
++                messages, tokenize=False, add_generation_prompt=True
++            )
+             prompt += "<|think_start|>\n"
+-            
++
+         output_texts.append(prompt)
+-        
++
+     output_texts = Dataset.from_dict({"text": output_texts})
+-    
++
+     return output_texts
+ 
+ 
+ _client = None
+ 
++
+ def get_openai_client():
+     global _client
+     if _client is None:
+         _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+     return _client
+ 
++
+ def generate_reasoning(sample):
+     client = get_openai_client()
+-    query, response = sample['query'], sample['response']
+-    
++    query, response = sample["query"], sample["response"]
++
+     _, question = query.split("### Question:", 1)
+ 
+     chunks = response.split("```")
+     approach, code, explanation = chunks[0], chunks[1], chunks[2]
+-    
++
+     prompt = REASONING_GENERATION_PROMPT.format(
+-        question=question,
+-        approach=approach,
+-        explanation=explanation,
+-        code=code
++        question=question, approach=approach, explanation=explanation, code=code
+     )
+-    
++
+     response = client.responses.create(
+-                model=cfg["cot_generation_model"],
+-                input=prompt,
+-                reasoning={"effort": "high"}
+-                )
+-    
+-    return {"reasoning": response.output_text}
+\ No newline at end of file
++        model=cfg["cot_gen_model"], input=prompt, reasoning={"effort": "high"}
++    )
++
++    return {"reasoning": response.output_text}
+diff --git a/qlora.py b/qlora.py
+index af7b195..3d1fc21 100644
+--- a/qlora.py
++++ b/qlora.py
+@@ -1,50 +1,56 @@
+ import torch
+-import json
++import yaml
+ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
+ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+ 
+ 
+-with open("config.json", "r") as f:
+-    cfg = json.load(f)
++with open("config/base_config.yaml") as file:
++    cfg = yaml.load(file, Loader=yaml.FullLoader)
++
+ 
+ def load_qlora_model(model_id):
+     bnb_config = BitsAndBytesConfig(
+-            load_in_4bit=True,
+-            bnb_4bit_use_double_quant=True,
+-            bnb_4bit_quant_type="nf4",
+-            bnb_4bit_compute_dtype=torch.bfloat16
+-        )
+-
+-    model = AutoModelForCausalLM.from_pretrained(model_id,
+-                                                dtype=torch.bfloat16,
+-                                                device_map="auto",
+-                                                quantization_config=bnb_config,
+-                                                attn_implementation="flash_attention_2")
+-    
++        load_in_4bit=True,
++        bnb_4bit_use_double_quant=True,
++        bnb_4bit_quant_type="nf4",
++        bnb_4bit_compute_dtype=torch.bfloat16,
++    )
++
++    model = AutoModelForCausalLM.from_pretrained(
++        model_id,
++        dtype=torch.bfloat16,
++        device_map="auto",
++        quantization_config=bnb_config,
++        attn_implementation="flash_attention_2",
++    )
++
+     model = prepare_model_for_kbit_training(model)
+-    
++
+     lora_config = LoraConfig(
+-                r=cfg["lora"]["rank"],
+-                lora_alpha=cfg["lora"]["alpha"],
+-                target_modules=cfg["lora"]["target"],
+-                lora_dropout=cfg["lora"]["dropout"],
+-                bias="none",
+-                task_type="CAUSAL_LM"
+-            )
+-    
++        r=cfg["lora"]["rank"],
++        lora_alpha=cfg["lora"]["alpha"],
++        target_modules=["q_proj", "v_proj", "o_proj"],
++        lora_dropout=cfg["lora"]["dropout"],
++        bias="none",
++        task_type="CAUSAL_LM",
++    )
++
+     model = get_peft_model(model, lora_config)
+ 
+     return model
+ 
++
+ def load_trained_model(model_id, adaptor_path):
+-    base_model = AutoModelForCausalLM.from_pretrained(model_id,
+-                                                      torch_dtype=torch.bfloat16,
+-                                                      device_map="auto",
+-                                                      attn_implementation="flash_attention_2")
++    base_model = AutoModelForCausalLM.from_pretrained(
++        model_id,
++        torch_dtype=torch.bfloat16,
++        device_map="auto",
++        attn_implementation="flash_attention_2",
++    )
+ 
+     model = PeftModel.from_pretrained(base_model, adaptor_path)
+-    
++
+     model.config.use_cache = True
+     model.eval()
+-    
+-    return model
+\ No newline at end of file
++
++    return model
