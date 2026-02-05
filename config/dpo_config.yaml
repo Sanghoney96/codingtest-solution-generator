@@ -1,0 +1,21 @@
+wandb:
+  project: "DPO"
+  display_name: "qwen2.5-python-coder"
+dataset: "newfacade/LeetCodeDataset"
+model_name: "Qwen/Qwen2.5-7B-Instruct"
+ckpt_name: "final-dpo-python_coder"
+stage_name: "dpo"
+cot_gen_model: "gpt-5-mini"
+
+dpo:
+  num_epochs: 2
+  batch_size: 4
+  grad_accum_steps: 4
+  learning_rate: 2e-5
+  warmup_ratio: 0.05
+  beta: 0.1
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.5
+  top_p: 0.95

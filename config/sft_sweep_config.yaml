@@ -1,0 +1,12 @@
+command:
+  - ${env}
+  - python
+  - -m
+  - train.sft
+method: grid
+metric:
+  goal: minimize
+  name: eval/loss
+parameters:
+  lora_rank:
+    values: [8, 16, 32]

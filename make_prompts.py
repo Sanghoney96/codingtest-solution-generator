@@ -1,11 +1,5 @@
-import os
 import yaml
-from prompts import REASONING_GENERATION_PROMPT
 from datasets import Dataset
-# from openai import OpenAI
-
-with open("config/base_config.yaml") as file:
-    cfg = yaml.load(file, Loader=yaml.FullLoader)
 
 
 def generate_prompts(dataset, tokenizer, is_test=False):
@@ -39,7 +33,6 @@ def generate_prompts(dataset, tokenizer, is_test=False):
             prompt = tokenizer.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )
-            prompt += "<|think_start|>\n"
 
         output_texts.append(prompt)
 
@@ -48,31 +41,43 @@ def generate_prompts(dataset, tokenizer, is_test=False):
     return output_texts
 
 
-_client = None
+def generate_preference_prompts(dataset, tokenizer):
+    prompts = []
+    chosen_li = []
+    rejected_li = []
 
+    for query, response, reasoning, rejected in zip(
+        dataset["query"], dataset["response"], dataset["reasoning"], dataset["rejected"]
+    ):
+        query_messages = [{"role": "user", "content": query}]
+        prompt = tokenizer.apply_chat_template(
+            query_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
 
-def get_openai_client():
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    return _client
+        chunks = response.split("```")
+        _, code, explanation = chunks[0], chunks[1], chunks[2]
 
+        chosen = (
+            "<|think_start|>\n"
+            + reasoning
+            + "\n<|think_end|>"
+            + "\n\n```"
+            + code
+            + "\n```"
+            + explanation
+            + "<|im_end|>"
+        )
 
-def generate_reasoning(sample):
-    client = get_openai_client()
-    query, response = sample["query"], sample["response"]
+        prompts.append(prompt)
+        chosen_li.append(chosen)
+        rejected_li.append(rejected + "<|im_end|>")
 
-    _, question = query.split("### Question:", 1)
-
-    chunks = response.split("```")
-    approach, code, explanation = chunks[0], chunks[1], chunks[2]
-
-    prompt = REASONING_GENERATION_PROMPT.format(
-        question=question, approach=approach, explanation=explanation, code=code
+    return Dataset.from_dict(
+        {
+            "prompt": prompts,
+            "chosen": chosen_li,
+            "rejected": rejected_li,
+        }
     )
-
-    response = client.responses.create(
-        model=cfg["cot_gen_model"], input=prompt, reasoning={"effort": "high"}
-    )
-
-    return {"reasoning": response.output_text}

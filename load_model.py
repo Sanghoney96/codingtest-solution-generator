@@ -38,7 +38,7 @@ def load_qlora_model(model_id, lora_rank, lora_alpha, lora_dropout, target_modul
 def load_trained_model(model_id, adaptor_path):
     base_model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         attn_implementation="flash_attention_2",
     )
@@ -47,5 +47,34 @@ def load_trained_model(model_id, adaptor_path):
 
     model.config.use_cache = True
     model.eval()
+
+    return model
+
+
+def load_qlora_model_with_lora_adapter(model_id, adapter_path):
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+
+    base_model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        dtype=torch.bfloat16,
+        device_map="auto",
+        quantization_config=bnb_config,
+        attn_implementation="sdpa",
+    )
+
+    base_model = prepare_model_for_kbit_training(base_model)
+
+    model = PeftModel.from_pretrained(
+        base_model,
+        adapter_path,
+    )
+
+    model.config.use_cache = False
+    model.enable_input_require_grads()
 
     return model
